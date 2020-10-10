@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 
 PlayerStage/*/build
+PlayerStage/*/.vscode
