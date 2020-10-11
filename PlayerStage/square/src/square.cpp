@@ -39,16 +39,16 @@ closeAll(int signum)
 void squareTime(float v, float w, float side, bool clockwise)
 {
 
-  // std::ostringstream ss;
-  // ss << side;
+  std::ostringstream ss;
+  ss << side;
 
-  // string filename = "../data/squareTime_s"+ ss.str();
-  // outfile.open(filename, ios::out);
+  string filename = "../data/squareTime_s"+ ss.str();
+  outfile.open(filename, ios::out);
   
 
-  // outfile << "Parametroak. v: " << v << " w: " << w << "\n";
-  // outfile << "#  Zutabeak: x y theta\n";
-  // std::cout << "Abiadurak: " << "v = " << v << " w= " << w << std::endl;
+  outfile << "Parametroak. v: " << v << " w: " << w << "\n";
+  outfile << "#  Zutabeak: x y theta\n";
+  std::cout << "Abiadurak: " << "v = " << v << " w= " << w << std::endl;
 
   using namespace PlayerCc;
 
@@ -65,39 +65,23 @@ void squareTime(float v, float w, float side, bool clockwise)
       float x0 = robota.GetXPos();
       float y0 = robota.GetYPos();
       float theta0 = robota.GetYaw();
-      float resta = 0., error = 20, mult = 1.0;
-      int count = 1;
-      // fprintf(stdout, "Initial pose:%.2f %.2f %.2f\n ", x0, y0, theta0);
-      // outfile << x0 << " " << y0 << " " << theta0 << "\n";
-      // while (1)
-      // {
-      while (error > 0) {
+      int count = 0;
+
+      fprintf(stdout, "Initial pose:%.2f %.2f %.2f\n ", x0, y0, theta0);
+      outfile << x0 << " " << y0 << " " << theta0 << "\n";
+      while (count < 40)
+      {
         bezeroa.Read();
-        // if (clockwise) robota.SetSpeed(-v, 0);
-        // else robota.SetSpeed(v,0);
-        // usleep((side / v)*1e6); // Egokitu balioa
+        if (clockwise) robota.SetSpeed(-v, 0);
+        else robota.SetSpeed(v,0);
+        usleep(4e6); // Egokitu balioa
         if (clockwise) robota.SetSpeed(0, -w);
         else robota.SetSpeed(0, w);
-        usleep((M_PI_2 / (w * mult)) * 1e6); // Egokitu balioa 5.8e6
-        robota.SetSpeed(0, 0);
+        usleep(5.65e6); // Egokitu balioa 
         bezeroa.Read();
-        resta = robota.GetYaw();
-        if (resta < 0) resta += 2 * M_PI;
-        error = M_PI_2 - (resta - theta0);
-        printf("%.4f\t%.10f\n", mult, error);
-        bezeroa.Read();
-        if (clockwise) robota.SetSpeed(0, w);
-        else robota.SetSpeed(0, -w);
-        usleep((M_PI_2 / (w * mult)) * 1e6); // Egokitu balioa 5.8e6
-        bezeroa.Read();
-        robota.SetSpeed(0,0);
-        mult -= 0.0001;
-        if (robota.GetYaw() != theta0) {
-          printf("Error!! %.2f\t%.2f\n", robota.GetYaw(), theta0);
-          return;
-        }
-        // outfile << robota.GetXPos() << " " << robota.GetYPos() << " " << robota.GetYaw() << "\n";
-        // fprintf(stdout, "Robot pose:%.2f %.2f %.2f\n ", robota.GetXPos(), robota.GetYPos(), robota.GetYaw());
+        outfile << robota.GetXPos() << " " << robota.GetYPos() << " " << robota.GetYaw() << "\n";
+        fprintf(stdout, "Robot pose:%.2f %.2f %.2f\n ", robota.GetXPos(), robota.GetYPos(), robota.GetYaw());
+        count++;
       }
     }
   catch (PlayerCc::PlayerError & e)
@@ -149,7 +133,7 @@ void squareOdom(float v, float w, float side, bool clockwise)
       float normdtheta = 0, acumdtheta = 0;
       int turnCount = 0;
 
-      while (1)
+      while (turnCount < 40)
       {
         bezeroa.Read();
         if (inside)
@@ -157,13 +141,13 @@ void squareOdom(float v, float w, float side, bool clockwise)
             robota.SetSpeed(v, 0);
             x = robota.GetXPos();
             y = robota.GetYPos();
-            outfile << robota.GetXPos() << " " << robota.GetYPos() << " " << robota.GetYaw() << "\n";
             d = sqrt((x0 - x) * (x0 -x)+(y0 -y)*(y0-y));
             //fprintf(stdout, "d = %.2f\n", d);
             if (d>=side)
             {
               inside = false;
               robota.SetSpeed(0, 0);
+              bezeroa.Read();
               x0 = robota.GetXPos();
               y0 = robota.GetYPos();
               theta0 = robota.GetYaw();
@@ -191,6 +175,8 @@ void squareOdom(float v, float w, float side, bool clockwise)
               acumdtheta += dtheta - M_PI_2;
               turnCount++;
               normdtheta = acumdtheta / turnCount;
+              bezeroa.Read();
+              outfile << robota.GetXPos() << " " << robota.GetYPos() << " " << robota.GetYaw() << "\n";
             }
           }
       }
@@ -239,7 +225,8 @@ void squareGoTo(float side, bool clockwise)
 
       // Zuzen joan eta bira emateko denbora eman behar zaio
       float t = 10;
-      while (1)
+      int count = 0;
+      while (count < 10)
       {
 
         bezeroa.Read();
@@ -273,7 +260,7 @@ void squareGoTo(float side, bool clockwise)
         bezeroa.Read();
         outfile << robota.GetXPos() << " " << robota.GetYPos() << " " << robota.GetYaw() << "\n";
         fprintf(stdout, "Robot pose:%.2f %.2f %.2f\n ", robota.GetXPos(), robota.GetYPos(), robota.GetYaw());
-
+        count++;
         /* Eskema amaiera */
       }
     }
