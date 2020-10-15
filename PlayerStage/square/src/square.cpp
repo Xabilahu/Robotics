@@ -96,7 +96,7 @@ void squareTime(float v, float w, float side, bool clockwise)
     heldu dela detektatzeko eta laukizuzena zehatzagoa egiteko
 '''
 */
-void squareOdom(float v, float w, float side, bool clockwise)
+void squareOdom(float v, float w, float side)
 {
   std::ostringstream ss;
   ss << side;
@@ -128,7 +128,6 @@ void squareOdom(float v, float w, float side, bool clockwise)
       float d = 0;
 
       bool inside = true;
-      if (clockwise) inside = false;
 
       float normdtheta = 0, acumdtheta = 0;
       int turnCount = 0;
@@ -155,13 +154,11 @@ void squareOdom(float v, float w, float side, bool clockwise)
           }
         if (!inside)
           {
-            if (clockwise && turnCount != 0) robota.SetSpeed(0, -w); // Aldatu eta egokitu biraketa kontrolatzeko
-            else robota.SetSpeed(0, w);
+            robota.SetSpeed(0, w);
 
             theta = robota.GetYaw();
 
             if (theta0 > 0 && theta < 0) theta += 2 * M_PI;
-            else if (clockwise && (theta0 < 0 && theta > 0)) theta0 += 2 * M_PI;
             // Valor absoluto de theta + theta0
             dtheta = abs(theta0 - theta) + 2 * normdtheta;
             printf("theta0: %.5f\ttheta: %.5f\tdtheta: %.5f\tnormdtheta: %.5f\n", theta0, theta, dtheta, normdtheta);
@@ -308,7 +305,7 @@ main(int argc, const char **argv)
       squareTime(v, w, side, clockwise);
       break;
     case 2:
-      squareOdom(v, w, side, clockwise);
+      squareOdom(v, w, side);
       break;
     case 3:
       squareGoTo(side, clockwise);
