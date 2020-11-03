@@ -9,7 +9,7 @@ include(UsePlayerC++)
 include(UsePlayerPlugin)
 
 player_add_playercpp_client(laserInfo SOURCES src/laserInfo.cpp)
-player_add_playercpp_client(oztopoakEkidin SOURCES src/oztopoakEkiditen-TODO.cpp)
+player_add_playercpp_client(oztopoakEkidin SOURCES src/oztopoakEkiditen.cpp)
 target_link_libraries( laserInfo ${Player_LIBS} )
 
 install(TARGETS laserInfo

@@ -18,6 +18,9 @@ resolution 0.02
 # set to 0 to go as fast as possible.
 speedup 0
 
+interval_sim 25 # milliseconds per update step
+interval_real 25 # real-time milliseconds per update step
+
 # configure the GUI window
 window
 (
