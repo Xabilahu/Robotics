@@ -7,9 +7,16 @@
 #include <string>
 #include <cstdlib>
 #include <algorithm>
+#include <iostream>
+#include <unistd.h>
+#include <fstream>
+#include <string.h>
+#include <sstream>
+using namespace std;
 
 std::ofstream datuFitx;
 std::string fileName = "outData.txt";
+std::ofstream outfile;
 
 void closeAll(int signum)
 {
@@ -102,9 +109,16 @@ int main(int argc, const char **argv)
     bool emergency = false;
     double left = 0.0, right = 0.0, forward = 0.0, sleepTime = 0.1;
 
+    std::ostringstream stat, sec;
+    stat << st;
+    sec << secCount;
+    string filename = "../data/stat"+ stat.str()+"sec"+sec.str()+".csv";
+    outfile.open(filename, ios::out);
+
     while (1)
     {
       bezeroa.Read();
+      outfile << robota.GetXPos() << "," << robota.GetYPos() << "\n";
 
       /* Laserraren irakurketak kudeatu */
 
@@ -156,10 +170,10 @@ int main(int argc, const char **argv)
       if (forward < 1.0 && !emergency) {
         forward = 0.0;
         if (left > right) {
-          left = 6.0; // When divided by 20 = 0.3 rad/s
+          left = 1.5; // When divided by 20 = 0.3 rad/s
           right = 0.0;
         } else {
-          right = 6.0; // When divided by 20 = 0.3 rad/s
+          right = 1.5; // When divided by 20 = 0.3 rad/s
           left = 0.0;
         }
         emergency = true;
@@ -176,8 +190,8 @@ int main(int argc, const char **argv)
       // printf("Linear: %.2f\tAngular: %.2f\n", linearVel, angleVel);
 
       // robota.SetSpeed(linearVel, angleVel);
-      printf("Forward: %.2f\tLeft: %.2f\n", forward/ 100, (right - left) / 20);
-      robota.SetSpeed(forward / 100, (right - left) / 20);
+      printf("Forward: %.2f\tLeft: %.2f\n", forward/ 50, (right - left) / 10);
+      robota.SetSpeed(forward / 50, (right - left) / 10);
       if (emergency) sleepTime = 2.6;
       else sleepTime = 0.1;
 
