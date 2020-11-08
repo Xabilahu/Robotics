@@ -31,6 +31,8 @@ void closeAll(int signum)
  *              - \alpha=Normalizing term (e.g. between 0-0.3)
  *        -> LinearVel=\abs{\frac{1}{AngleVel}} * \beta
  *              - \beta=Normalizing term (e.g. between 0-0.3)
+ *  [ ]  Clamp LinearVel to [-0.3, 0.3] and AngleVel to [-0.4, 0.4] 
+ *  [ ]  Try different maps
  */
 
 /*
@@ -97,6 +99,8 @@ int main(int argc, const char **argv)
 
     int readingsPerSection = int(count/secCount);
     double sections[secCount][readingsPerSection];
+    bool emergency = false;
+    double left = 0.0, right = 0.0, forward = 0.0, sleepTime = 0.1;
 
     while (1)
     {
@@ -130,36 +134,40 @@ int main(int argc, const char **argv)
       // float x = robota.GetXPos();
       // float y = robota.GetYPos();
       //datuFitx  << x << " " << y  << "\n";
+      double stopCond = (secCount / 2);
 
-      // int targetSec = 0;
-      // double maxVal = 0.0;
+      if (secCount % 2 == 0) stopCond -= 1;
 
-      // for (int i = 0; i < secCount; i++) {
-      //   if (maxVal < statistics[i][st]) {
-      //     targetSec = i;
-      //     maxVal = statistics[i][st];
-      //   }
-      // }
-
-      double left = 0.0, right = 0.0, forward = 0.0;
-
-      if (secCount % 2 == 0) {
-        for (int i = 0, j = (secCount / 2) + 1; i < (secCount / 2) - 1; i++, j++) {
+      if (!emergency) {
+        left = 0.0;
+        right = 0.0;
+        for (int i = 0, j = (secCount / 2) + 1; i <  stopCond; i++, j++) {
           left += statistics[i][st];
           right += statistics[j][st];
         }
-        left /= (secCount / 2) - 1;
-        right /= (secCount / 2) - 1;
-        forward = (statistics[(secCount / 2) - 1][st] + statistics[(secCount / 2)][st]) / 2;
-      } else {
-        for (int i = 0, j = (secCount / 2) + 1; i < (secCount / 2); i++, j++) {
-          left += statistics[i][st];
-          right += statistics[j][st];
-        }
-        left /= (secCount / 2);
-        right /= (secCount / 2);
-        forward = statistics[(secCount / 2)][st];
+
+        left /= stopCond;
+        right /= stopCond;
       }
+
+      if (secCount % 2 == 0) forward = (statistics[(secCount / 2) - 1][st] + statistics[(secCount / 2)][st]) / 2;
+      else forward = statistics[(secCount / 2)][st];
+
+      if (forward < 1.0 && !emergency) {
+        forward = 0.0;
+        if (left > right) {
+          left = 6.0; // When divided by 20 = 0.3 rad/s
+          right = 0.0;
+        } else {
+          right = 6.0; // When divided by 20 = 0.3 rad/s
+          left = 0.0;
+        }
+        emergency = true;
+        printf("Emergency stop!\n");
+      } else if (emergency) {
+        if (forward < 1.0) forward = 0.0;
+        else emergency = false;
+      } 
 
       // bezeroa.Read();
       // double angleVel = (laserra.GetBearing(((targetSec + 1) * readingsPerSection) - int(readingsPerSection / 2)) - robota.GetYaw()) * 0.1;
@@ -170,7 +178,10 @@ int main(int argc, const char **argv)
       // robota.SetSpeed(linearVel, angleVel);
       printf("Forward: %.2f\tLeft: %.2f\n", forward/ 100, (right - left) / 20);
       robota.SetSpeed(forward / 100, (right - left) / 20);
-      sleep(0.1);
+      if (emergency) sleepTime = 2.6;
+      else sleepTime = 0.1;
+
+      sleep(sleepTime);
     }
   }
   catch (PlayerCc::PlayerError &e)
