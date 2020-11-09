@@ -18,8 +18,11 @@ with open(sys.argv[1],'r') as csvfile:
         y.append(float(row[1]))
 
 
+
 img = imread('cave.png')
 plt.scatter(x,y,zorder=1)
+if (np.array_equal(x[-5:-1], x[-10:-6]) and np.array_equal(y[-5:-1], y[-10:-6])):
+    plt.scatter(x[-1],y[-1],zorder=1,c='r')
 plt.imshow(img, zorder=0, extent=[-8.0, 8.0, -8.0, 8.0]) #cave.png limits
 #plt.legend('Robotaren ibilbidea', scatterpoints=1)
 plt.xlabel('x')
