@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <csignal>
 #include <math.h>
+
 // Opencv
 //#include <cv.h>
 //#include <highgui.h>
@@ -126,6 +127,19 @@ void keyJoystick()
   }
 }
 
+void oztopoakDeitu(int argc, char **args)
+{
+  char *callString = "";
+
+  for (int i = 2; i < argc; i++) {
+    asprintf(&callString, "%s %s", callString, args[i]);
+  }
+
+  asprintf(&callString, "../../oekidin/build/oztopoakEkidin%s", callString);
+  system(callString);
+  free(callString);
+}
+
 void laserMapping()
 {
   int i;
@@ -157,7 +171,7 @@ void laserMapping()
       ry = robot.GetYPos();
       rtheta = robot.GetYaw();
       /* Irudikatu robotaren posizioa mapan */
-      setObstacle(rx, ry, color0);
+      setObstacle(rx, -ry, color0);
       /* Laserraren irakurketak proiektatu behar dira munduan */
       for (i = 0; i < sick.GetCount(); i++)
       {
@@ -169,7 +183,7 @@ void laserMapping()
           lx = worldCoords.first;
           ly = worldCoords.second;
           // Set the obstacle in the map
-          setObstacle(lx, ly, color1);
+          setObstacle(lx, -ly, color1);
         }
       }
       usleep(100000);
@@ -194,9 +208,27 @@ void closeAll(int signum)
 int main(int argc, char **argv)
 {
   signal(SIGINT, closeAll);
-  parse_args(argc, argv);
+  //parse_args(argc, argv);
+  bool avoidObstacles = false;
+  std::thread th1;
 
-  std::thread th1(keyJoystick);
+ if (argc != 1) {
+    std::string currentArg(argv[1]);
+    std::transform(currentArg.begin(), currentArg.end(), currentArg.begin(), ::tolower);
+
+    if ((currentArg.compare("-o") == 0)) {
+      avoidObstacles = true;
+    } else if ((currentArg.compare("-k")) == 0) {
+      avoidObstacles = false;
+    } else {
+      fprintf(stderr, "[ERROR] Unrecognized Command-Line argument.\n");
+      exit(1);
+    }
+  } 
+
+  if (avoidObstacles) th1 = std::thread(oztopoakDeitu, argc, argv);
+  else th1 = std::thread(keyJoystick);
+
   std::thread th2(laserMapping);
 
   th1.detach();

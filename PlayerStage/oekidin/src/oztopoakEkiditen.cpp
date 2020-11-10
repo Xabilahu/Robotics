@@ -14,6 +14,11 @@
 #include <sstream>
 using namespace std;
 
+#define MIN_LINEAR    -0.3
+#define MAX_LINEAR    0.3
+#define MIN_ANGULAR   -0.4
+#define MAX_ANGULAR   0.4
+
 std::ofstream datuFitx;
 std::string fileName = "outData.txt";
 std::ofstream outfile;
@@ -21,7 +26,7 @@ std::ofstream outfile;
 void closeAll(int signum)
 {
   std::cout << "Interrupt signal (" << signum << ") received\n";
-  //datuFitx.close();
+  datuFitx.close();
   exit(signum);
 }
 
@@ -30,7 +35,7 @@ void closeAll(int signum)
  *  [X]  Try different statistics apart from the mean: median, max, etc.
  *  [X]  Try different section counts.
  *  [ ]  Discard edge values (close to -\frac{\pi}{2} -- \frac{\pi}{2}).
- *  [ ]  Buffer over ceratin time-window.
+ *  [ ]  Buffer over ceratain time-window.
  *  [ ]  Try different functions for estimating velocities.
  *  [ ]  Distance Histogram approach. 
  *        -> AngleVel = (\theta_{d} - \theta) * \alpha
@@ -38,7 +43,7 @@ void closeAll(int signum)
  *              - \alpha=Normalizing term (e.g. between 0-0.3)
  *        -> LinearVel=\abs{\frac{1}{AngleVel}} * \beta
  *              - \beta=Normalizing term (e.g. between 0-0.3)
- *  [ ]  Clamp LinearVel to [-0.3, 0.3] and AngleVel to [-0.4, 0.4] 
+ *  [X]  Clamp LinearVel to [-0.3, 0.3] and AngleVel to [-0.4, 0.4] 
  *  [ ]  Try different maps
  */
 
@@ -51,6 +56,7 @@ int main(int argc, const char **argv)
 
   int st = 0; // Mean
   int secCount = 3;
+  int sideSecCount = 1, forwardSecCount = 1;
 
   if (argc != 1) {
     for (int i=1; i < argc; i++) {
@@ -66,6 +72,8 @@ int main(int argc, const char **argv)
           fprintf(stderr, "[ERROR] Section count cannot be < 3.\n");
           exit(1);
         }
+        sideSecCount = int(secCount / 2.4);
+        forwardSecCount = secCount - (sideSecCount * 2);
       }
     }
   }
@@ -92,7 +100,7 @@ int main(int argc, const char **argv)
       bezeroa.Read();
 
     // Fitxategia prestatu
-    // datuFitx.open(fileName, ios::out);
+    datuFitx.open(fileName, ios::out);
     // datuFitx  << "# Robotaren (rx ry) koordenatuak \n";
 
     int count = laserra.GetCount();
@@ -107,7 +115,7 @@ int main(int argc, const char **argv)
     int readingsPerSection = int(count/secCount);
     double sections[secCount][readingsPerSection];
     bool emergency = false;
-    double left = 0.0, right = 0.0, forward = 0.0, sleepTime = 0.1;
+    double left = 0.0, right = 0.0, forward = 0.0, angular = 0.0, sleepTime = 0.1;
 
     std::ostringstream stat, sec;
     stat << st;
@@ -145,35 +153,32 @@ int main(int argc, const char **argv)
       }
 
       /* Robotaren abiadurak finkatu */
-      // float x = robota.GetXPos();
-      // float y = robota.GetYPos();
-      //datuFitx  << x << " " << y  << "\n";
-      double stopCond = (secCount / 2);
-
-      if (secCount % 2 == 0) stopCond -= 1;
+      float x = robota.GetXPos();
+      float y = robota.GetYPos();
+      datuFitx  << x << "," << y << "\n";
 
       if (!emergency) {
         left = 0.0;
         right = 0.0;
-        for (int i = 0, j = (secCount / 2) + 1; i <  stopCond; i++, j++) {
-          left += statistics[i][st];
-          right += statistics[j][st];
-        }
-
-        left /= stopCond;
-        right /= stopCond;
       }
 
-      if (secCount % 2 == 0) forward = (statistics[(secCount / 2) - 1][st] + statistics[(secCount / 2)][st]) / 2;
-      else forward = statistics[(secCount / 2)][st];
+      for (int i = 0; i < secCount; i++) {
+        if (!emergency && i < sideSecCount) left += statistics[i][st];
+        else if (i >= sideSecCount && i < sideSecCount + forwardSecCount) forward += statistics[i][st];
+        else if (!emergency && i >= sideSecCount + forwardSecCount) right += statistics[i][st];
+      }
+
+      left /= sideSecCount;
+      right /= sideSecCount;
+      forward /= forwardSecCount;
 
       if (forward < 1.0 && !emergency) {
         forward = 0.0;
         if (left > right) {
-          left = 1.5; // When divided by 20 = 0.3 rad/s
+          left = 6; // When divided by 20 = 0.3 rad/s
           right = 0.0;
         } else {
-          right = 1.5; // When divided by 20 = 0.3 rad/s
+          right = 6; // When divided by 20 = 0.3 rad/s
           left = 0.0;
         }
         emergency = true;
@@ -190,8 +195,13 @@ int main(int argc, const char **argv)
       // printf("Linear: %.2f\tAngular: %.2f\n", linearVel, angleVel);
 
       // robota.SetSpeed(linearVel, angleVel);
-      printf("Forward: %.2f\tLeft: %.2f\n", forward/ 50, (right - left) / 10);
-      robota.SetSpeed(forward / 50, (right - left) / 10);
+      forward /= 50;
+      forward = (forward < MIN_LINEAR) ? MIN_LINEAR : (MAX_LINEAR < forward) ? MAX_LINEAR : forward;
+      angular = (right - left) / 10;
+      angular = (angular < MIN_ANGULAR) ? MIN_ANGULAR : (MAX_ANGULAR < angular) ? MAX_ANGULAR : angular;
+
+      printf("Forward: %.2f\tAngular: %.2f\n", forward, angular);
+      robota.SetSpeed(forward, angular);
       if (emergency) sleepTime = 2.6;
       else sleepTime = 0.1;
 
