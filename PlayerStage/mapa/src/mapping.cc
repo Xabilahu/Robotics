@@ -157,7 +157,8 @@ void laserMapping()
     Position2dProxy robot(&robotClient, mIndex);
     robot.SetMotorEnable(true);
     std::pair<float,float> worldCoords;
-    float pointX = 0.0, pointY = 0.0;
+    float pointX = 0.0, pointY = 0.0, savedX = 0.0, savedY = 0.0, savedYaw = 0.0;
+    bool isStalled = false;
 
     for (i = 0; i < 10; i++)
       robotClient.Read();
@@ -170,9 +171,16 @@ void laserMapping()
       rx = robot.GetXPos();
       ry = robot.GetYPos();
       rtheta = robot.GetYaw();
+
+      if (robot.GetStall()) {
+        robot.SetSpeed(0,0);
+        continue;
+      }
+
       /* Irudikatu robotaren posizioa mapan */
       setObstacle(rx, -ry, color0);
       /* Laserraren irakurketak proiektatu behar dira munduan */
+      
       for (i = 0; i < sick.GetCount(); i++)
       {
         if (sick.GetRange(i) < sick.GetMaxRange())
