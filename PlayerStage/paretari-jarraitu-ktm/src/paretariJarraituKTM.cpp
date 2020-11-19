@@ -8,7 +8,7 @@
 
 /* PARAMETROAK ZEHAZTU */
 
-#define LASER_IZPI_KOP 0
+#define LASER_IZPI_KOP 90
 
 std::ofstream datuFitx;
 
@@ -45,7 +45,7 @@ int main(int argc, const char **argv)
   {
     double c0, c1, cov00, cov01, cov11, batura;
     double x[LASER_IZPI_KOP], y[LASER_IZPI_KOP];
-    double theta;
+    double theta, angelua, sc, rx, ry, maxRange;
     int j = 0;
 
     using namespace PlayerCc;
@@ -60,6 +60,8 @@ int main(int argc, const char **argv)
     for (i = 0; i < 10; i++)
       bezeroa.Read();
 
+    maxRange = laserra.GetMaxRange() - 4;
+
     while (1)
     {
       diff = 0;
@@ -69,9 +71,11 @@ int main(int argc, const char **argv)
       for (i = 0; i < LASER_IZPI_KOP; i++)
       {
         /* Hemen laser izpiak proiektuatu behar dira */
-        x[i] = 0;
-        y[i] = 0;
-        j++;
+        if (laserra.GetRange(i) < maxRange) {
+          x[j] = laserra.GetRange(i) * cos(laserra.GetBearing(i));
+          y[j] = laserra.GetRange(i) * sin(laserra.GetBearing(i));
+          j++;
+        }
       }
 
       /* regresio lineala: karratu txikienen metodoa */
@@ -82,13 +86,15 @@ int main(int argc, const char **argv)
                      &batura);
 
       /* Kalkulatu robota eta paretaren arteko angelua */
-      // angelua = ????
+      rx = laserra.GetRange(90) * cos(laserra.GetBearing(90));
+      ry = laserra.GetRange(90) * sin(laserra.GetBearing(90));
+      sc = rx + ry * c1;
+      angelua = acos(sc / (sqrt(pow(rx, 2) + pow(ry, 2)) * sqrt(1 + pow(c1, 2))));
 
       /* Abiadurak finkatu */
-      // w = angelua * Kp
-      w = 0;
+      w = angelua * Kp;
 
-      robota.SetSpeed(0.2, w);
+      robota.SetSpeed(min(1 / w, 0.2f), w);
     }
   }
   catch (PlayerCc::PlayerError &e)
