@@ -1,5 +1,6 @@
 #include <libplayerc++/playerc++.h>
 #include <iostream>
+#include <fstream>
 #include <unistd.h>
 #include <csignal>
 #include <math.h>
@@ -151,7 +152,6 @@ void laserMapping()
   {
     using namespace PlayerCc;
 
-    using namespace PlayerCc;
     PlayerClient robotClient(gHostname, mPort);
     LaserProxy sick(&robotClient, lIndex);
     Position2dProxy robot(&robotClient, mIndex);
@@ -174,7 +174,19 @@ void laserMapping()
 
       if (robot.GetStall()) {
         robot.SetSpeed(0,0);
+        if (!isStalled) {
+          savedX = rx;
+          savedY = ry;
+          savedYaw = rtheta;
+          isStalled = true;
+        }
         continue;
+      } else if (isStalled) {
+        isStalled = false;
+        robot.SetOdometry(savedX, savedY, savedYaw);
+        rx = savedX;
+        ry = savedY;
+        rtheta = savedYaw;
       }
 
       /* Irudikatu robotaren posizioa mapan */
