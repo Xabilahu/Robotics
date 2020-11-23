@@ -34,6 +34,7 @@
 #define MXSIZE 1000
 #define MYSIZE 1000
 #define SCALE 20
+
 float rx, ry, rtheta;
 float rx0, ry0, rtheta0;
 
@@ -60,7 +61,7 @@ int setObstacle(float xpos, float ypos, cv::Scalar &c)
 
   i = MX0 + xpos * SCALE;
   j = MY0 + ypos * SCALE;
-  if (i >= 0 && i < MXSIZE && j >= 0 & j < MYSIZE)
+  if ((i >= 0 && i < MXSIZE) && (j >= 0 && j < MYSIZE))
     circle(map, cv::Point(i, j), 0, c, 2, 8);
   return 1;
 }
@@ -130,7 +131,7 @@ void keyJoystick()
 
 void oztopoakDeitu(int argc, char **args)
 {
-  char *callString = "";
+  char *callString;
 
   for (int i = 2; i < argc; i++) {
     asprintf(&callString, "%s %s", callString, args[i]);
@@ -144,7 +145,7 @@ void oztopoakDeitu(int argc, char **args)
 void laserMapping()
 {
   int i;
-  float lx, ly, ltheta;
+  float lx, ly;
 
   cv::namedWindow("MAP", CV_WINDOW_AUTOSIZE);
 
@@ -193,7 +194,7 @@ void laserMapping()
       setObstacle(rx, -ry, color0);
       /* Laserraren irakurketak proiektatu behar dira munduan */
       
-      for (i = 0; i < sick.GetCount(); i++)
+      for (i = 0; i < int(sick.GetCount()); i++)
       {
         if (sick.GetRange(i) < sick.GetMaxRange())
         {
