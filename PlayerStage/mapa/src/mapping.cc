@@ -35,6 +35,11 @@
 #define MYSIZE 1000
 #define SCALE 20
 
+#define MIN_LINEAR    -0.3
+#define MAX_LINEAR    0.3
+#define MIN_ANGULAR   -0.4
+#define MAX_ANGULAR   0.4
+
 float rx, ry, rtheta;
 float rx0, ry0, rtheta0;
 
@@ -61,7 +66,7 @@ int setObstacle(float xpos, float ypos, cv::Scalar &c)
 
   i = MX0 + xpos * SCALE;
   j = MY0 + ypos * SCALE;
-  if ((i >= 0 && i < MXSIZE) && (j >= 0 && j < MYSIZE))
+  if (i >= 0 && i < MXSIZE && j >= 0 && j < MYSIZE)
     circle(map, cv::Point(i, j), 0, c, 2, 8);
   return 1;
 }
@@ -129,17 +134,114 @@ void keyJoystick()
   }
 }
 
-void oztopoakDeitu(int argc, char **args)
+void oztopoakDeitu()
 {
-  char *callString;
+  int i;
+  int st = 0; // Mean
+  int secCount = 3;
+  int sideSecCount = 1, forwardSecCount = 1;
+  try
+  {
+    using namespace PlayerCc;
 
-  for (int i = 2; i < argc; i++) {
-    asprintf(&callString, "%s %s", callString, args[i]);
+    // Sortu bezeroa eta konektatu zerbitzariarekin.
+    PlayerClient bezeroa("localhost", 6665);
+    // Sortu laser interfazea eta harpidetu bezeroarekin
+    LaserProxy laserra(&bezeroa, 0);
+    // Sortu position2d interfazea eta harpidetu bezeroarekin
+    Position2dProxy robota(&bezeroa, 0);
+
+
+    robota.SetMotorEnable(true);
+
+    for (i = 0; i < 10; i++)
+      bezeroa.Read();
+
+
+    int count = laserra.GetCount();
+
+    int readingsPerSection = int(count/secCount);
+    double sections[secCount][readingsPerSection];
+    bool emergency = false;
+    double left = 0.0, right = 0.0, forward = 0.0, angular = 0.0, sleepTime = 0.1;
+
+
+    while (1)
+    {
+      bezeroa.Read();
+
+      /* Laserraren irakurketak kudeatu */
+
+      for (int i = 0; i < secCount; i++){
+        for (int j = 0; j < readingsPerSection; j++) {
+          sections[i][j] = laserra.GetRange(i * readingsPerSection + j);
+        }
+      }
+
+      double statistics[secCount][3];
+
+      for (int i = 0; i < secCount; i++) {
+        double mean = 0.0;
+        double maxVal = 0.0;
+        for (int j = 0; j < readingsPerSection; j++) {
+          mean += sections[i][j];
+          if (sections[i][j] > maxVal) maxVal = sections[i][j];
+        }
+        mean /= readingsPerSection;
+        std::sort(sections[i], sections[i] + readingsPerSection);
+        statistics[i][0] = mean;
+        statistics[i][1] = maxVal;
+        statistics[i][2] = sections[i][int(readingsPerSection / 2)];
+      }
+
+      if (!emergency) {
+        left = 0.0;
+        right = 0.0;
+      }
+
+      for (int i = 0; i < secCount; i++) {
+        if (!emergency && i < sideSecCount) left += statistics[i][st];
+        else if (i >= sideSecCount && i < sideSecCount + forwardSecCount) forward += statistics[i][st];
+        else if (!emergency && i >= sideSecCount + forwardSecCount) right += statistics[i][st];
+      }
+
+      left /= sideSecCount;
+      right /= sideSecCount;
+      forward /= forwardSecCount;
+
+      if (forward < 1.0 && !emergency) {
+        forward = 0.0;
+        if (left > right) {
+          left = 6; // When divided by 20 = 0.3 rad/s
+          right = 0.0;
+        } else {
+          right = 6; // When divided by 20 = 0.3 rad/s
+          left = 0.0;
+        }
+        emergency = true;
+        printf("Emergency stop!\n");
+      } else if (emergency) {
+        if (forward < 1.0) forward = 0.0;
+        else emergency = false;
+      } 
+
+      forward /= 50;
+      forward = (forward < MIN_LINEAR) ? MIN_LINEAR : (MAX_LINEAR < forward) ? MAX_LINEAR : forward;
+      angular = (right - left) / 10;
+      angular = (angular < MIN_ANGULAR) ? MIN_ANGULAR : (MAX_ANGULAR < angular) ? MAX_ANGULAR : angular;
+
+      printf("Forward: %.2f\tAngular: %.2f\n", forward, angular);
+      robota.SetSpeed(forward, angular);
+      if (emergency) sleepTime = 2.6;
+      else sleepTime = 0.1;
+
+      sleep(sleepTime);
+    }
   }
-
-  asprintf(&callString, "../../oekidin/build/oztopoakEkidin%s", callString);
-  system(callString);
-  free(callString);
+  catch (PlayerCc::PlayerError &e)
+  {
+    std::cerr << e << std::endl;
+  }
 }
 
 void laserMapping()
@@ -247,7 +349,7 @@ int main(int argc, char **argv)
     }
   } 
 
-  if (avoidObstacles) th1 = std::thread(oztopoakDeitu, argc, argv);
+  if (avoidObstacles) th1 = std::thread(oztopoakDeitu);
   else th1 = std::thread(keyJoystick);
 
   std::thread th2(laserMapping);
