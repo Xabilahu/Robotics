@@ -45,7 +45,7 @@ int main(int argc, const char **argv)
   {
     double c0, c1, cov00, cov01, cov11, batura;
     double x[LASER_IZPI_KOP], y[LASER_IZPI_KOP];
-    double theta, angelua, sc, rx, ry, maxRange;
+    double theta, angelua, y0, y1, maxRange;
     int j = 0;
 
     using namespace PlayerCc;
@@ -60,7 +60,7 @@ int main(int argc, const char **argv)
     for (i = 0; i < 10; i++)
       bezeroa.Read();
 
-    maxRange = laserra.GetMaxRange() - 4;
+    maxRange = laserra.GetMaxRange() - 6;
 
     while (1)
     {
@@ -86,15 +86,16 @@ int main(int argc, const char **argv)
                      &batura);
 
       /* Kalkulatu robota eta paretaren arteko angelua */
-      rx = laserra.GetRange(90) * cos(laserra.GetBearing(90));
-      ry = laserra.GetRange(90) * sin(laserra.GetBearing(90));
-      sc = rx + ry * c1;
-      angelua = acos(sc / (sqrt(pow(rx, 2) + pow(ry, 2)) * sqrt(1 + pow(c1, 2))));
-
+      y0 = c0; //x0 = 0
+      y1 = c0 + c1; //x1 = 1
+      angelua = atan2(y1-y0, 1);
+      if (angelua < 0 || isnan(angelua)) angelua=0.0;
+      printf("Angelua %f \n" , angelua);
       /* Abiadurak finkatu */
       w = angelua * Kp;
-
-      robota.SetSpeed(min(1 / w, 0.2f), w);
+      v = min(1 / w, 0.2f);
+      robota.SetSpeed(v, w);
+      // Kp = 0.45;
     }
   }
   catch (PlayerCc::PlayerError &e)
