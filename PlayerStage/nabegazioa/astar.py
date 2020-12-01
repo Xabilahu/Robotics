@@ -115,17 +115,23 @@ def astar(maze, start, end):
         # Adjacent squares
         for new_position in [(0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]: 
 
+            delta_index += 1
             # Get node position
-            # node_position =
+            node_position[0] = current_node[0] + new_position[0]
+            node_position[1] = current_node[1] + new_position[1]
             
             # Make sure position is within maze range
+            if node_position[0] < 0 or node_position[0] > len(maze[0])-1 or node_position[1] < 0 or node_position[1] > len(maze)-1:
+                continue
             
             # Make sure walkable terrain
+            if maze[node_position[0]][node_position[1]] == 1:
+                continue
 
             # Create new node and append it to children list
-            # new_node = Node(?, ?)
-            # new_node.delta = delta_signs[?]
-            # children.append(new_node)
+            new_node = Node(current_node, node_position)
+            new_node.delta = delta_signs[delta_index]
+            children.append(new_node)
             
         # Loop through children
         print("         Children list:")
