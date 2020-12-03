@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-delta_signs = ['→','←',  '↓', '↑',  '↘', '↙', '↗', '↖']
+
+import math
+
+delta_signs = ['→','←', '↓', '↑', '↘', '↙', '↗', '↖']
 # [(0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)] left, right, up, down, upleft, upright, downleft, downright 
 #delta_signs = ['↓', '←','→','↑',  '↖', '↗', '↙', '↘']
 
@@ -45,11 +48,7 @@ class MazePath():
         for i in range(self.cols):
             for j in range(self.rows):            
                 print("{:1}".format(self.maze[i][j]), end= " ")
-            print("")
-            
-
-
-        
+            print("")    
 
 def printNodeList(node_list):
     for node in node_list:
@@ -98,6 +97,7 @@ def astar(maze, start, end):
         if current_node == end_node:
             path = []
             current = current_node
+            current_node.delta = 'g'
             total_cost = current.g
             print("Goal reached. Calculating path...")
             while current is not None:
@@ -117,11 +117,10 @@ def astar(maze, start, end):
 
             delta_index += 1
             # Get node position
-            node_position[0] = current_node[0] + new_position[0]
-            node_position[1] = current_node[1] + new_position[1]
+            node_position = (current_node.position[0] + new_position[0],current_node.position[1] + new_position[1])
             
             # Make sure position is within maze range
-            if node_position[0] < 0 or node_position[0] > len(maze[0])-1 or node_position[1] < 0 or node_position[1] > len(maze)-1:
+            if (node_position[0] < 0 or node_position[0] >= len(maze) or node_position[1] < 0 or node_position[1] >= len(maze[0])):
                 continue
             
             # Make sure walkable terrain
@@ -143,17 +142,19 @@ def astar(maze, start, end):
             # Child is on the closed list?
             print("          child ({:d},{:d}) in closed_list?".format(child.position[0], child.position[1]))
             # TODO
-            # for closed_child in closed_list:
-            # if child == closed_child: ???
-            if found_in_closed: continue
-            print("          No!")
-            print("          -------------------")
+            found_in_closed = child in closed_list
+            if found_in_closed: 
+                continue
+                print("          No!")
+                print("          -------------------")
 
             # TODO
             # calculate new cost
             # Create the f, g, and h values
 
-            # ???????
+            current_step = 1.4 if child.delta in delta_signs[4:] else 1
+            c_g = current_node.g + current_step
+
             # Child is already in the open list
             print("          child ({:d},{:d}) in open_list?".format(child.position[0], child.position[1]))
             found_in_open = False
@@ -162,7 +163,12 @@ def astar(maze, start, end):
                 if child == open_node:
                     found_in_open = True
                     print("          Yes!--> analyze g function: {:f} >{:f}".format(child.g, open_node.g))
-                # TODO ...
+                    if c_g < child.g:
+                        child.g = c_g
+                        child.h = math.sqrt((end_node.position[0] - child.position[0]) ** 2 + (end_node.position[1] - child.position[1]) ** 2)
+                        child.f = child.g + child.h
+                        break
+                        
                 
             # Add the child to the open list
             if not found_in_open:
