@@ -5,7 +5,10 @@
 #include <iostream>
 #include <fstream>
 
-#define LASER_ANG 0
+#define MAX_LINEAR    0.3
+#define MIN_LINEAR   -0.3
+#define MAX_ANGULAR   0.4
+#define MIN_ANGULAR  -0.4
 
 std::ofstream datuFitx;
 
@@ -65,18 +68,32 @@ int main(int argc, const char **argv)
     for (i = 0; i < 10; i++)
       bezeroa.Read();
 
+    int readingCount = int(laserra.GetCount() / 3);
+
     while (1)
     {
       batezbdist = 0;
       bezeroa.Read();
-      diff = 0
-             /* Kalkulatu paretarako batezbesteko distantzia */
+      diff = 0;
 
-             /* Kalkulatu errorea */
+      /* Kalkulatu paretarako batezbesteko distantzia */
+      for (int i = 0; i < 20; i++) {
+        batezbdist += laserra.GetRange(i);
+      }
 
-             /* Abiadurak finkatu proportzionalki */
+      batezbdist /= 20;
 
-             robota.SetSpeed(v, w);
+      /* Kalkulatu errorea */
+      diff = dist - batezbdist;
+
+      /* Abiadurak finkatu proportzionalki */
+      w = Kp * diff;
+      v = fabs(1 / w);
+
+      v = (v < MIN_LINEAR) ? MIN_LINEAR : (MAX_LINEAR < v) ? MAX_LINEAR : v;
+      w = (w < MIN_ANGULAR) ? MIN_ANGULAR : (MAX_ANGULAR < w) ? MAX_ANGULAR : w;
+
+      robota.SetSpeed(v, w);
       datuFitx << batezbdist << " " << diff << " " << w << " " << v << " " << robota.GetXPos() << " " << robota.GetYPos() << "\n";
     }
   }
