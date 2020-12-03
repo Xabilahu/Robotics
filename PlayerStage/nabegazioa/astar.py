@@ -130,6 +130,10 @@ def astar(maze, start, end):
             # Create new node and append it to children list
             new_node = Node(current_node, node_position)
             new_node.delta = delta_signs[delta_index]
+            new_node.g = current_node.g
+            new_node.g += 1.4 if new_node.delta in delta_signs[4:] else 1
+            new_node.h = math.sqrt((end_node.position[0] - new_node.position[0]) ** 2 + (end_node.position[1] - new_node.position[1]) ** 2)
+            new_node.f = new_node.g + new_node.h
             children.append(new_node)
             
         # Loop through children
@@ -209,6 +213,7 @@ def main():
 
     # start = (0, 5)
     # end = (3, 1)
+
     # maze = [[0, 0, 0, 0, 0],
     #         [0, 0, 1, 0, 0],
     #         [1, 0, 1, 1, 0],
@@ -247,7 +252,6 @@ def main():
 
     # start = (12, 11)
     # end = (1, 24)
-
 
     maze = [[1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0],
             [1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0],
