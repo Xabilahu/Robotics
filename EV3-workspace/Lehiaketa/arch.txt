@@ -1,0 +1,4 @@
+3 Threads:
+  - Manage ColorSensor to identify when and which traffic-light the robot is at.
+  - Follow the line with PID controlling system.
+  - Decide when to get out of the main track to deliver pizza.
