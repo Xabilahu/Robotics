@@ -8,22 +8,36 @@ Left ---- Right
 from ev3dev2.sensor import Sensor, INPUT_2, INPUT_1
 from ev3dev2.sensor.lego import ColorSensor
 from ev3dev2.motor import OUTPUT_A, OUTPUT_D, MoveTank
-from ev3dev2.led import Leds
-from time import sleep
-from threading import Thread
+from ev3dev2.sound import Sound
+from time import sleep, time
+from threading import Lock, Thread
 import os
 
-leftSpeed = 20
-rightSpeed = 20
+p = 0
+i = 0
+d = 0
+kp = 0.5
+ki = 0.05
+kd = 0.125
+readings = []
 lsa = Sensor(INPUT_2)
 motor = MoveTank(OUTPUT_D, OUTPUT_A)
 colorSensor = ColorSensor(INPUT_1)
-threshold = 95
-turning = False
-baseSpeed = 10
+baseSpeed = 25
+rightSpeed = baseSpeed
+leftSpeed = baseSpeed
+prevLeft = baseSpeed
+prevRight = baseSpeed
+mutex = Lock()
 
-PIZZA_DELIVERY = False
-DELTA = 5
+speed_history = []
+
+PIZZA_DELIVERY = -1
+INTERSECTION_DETECTED = False
+SEMAPHORE_SEQ = [[3, 2, 5],
+                 [5, 3, 2],
+                 [2, 5, 3]]
+ALPHA = 0.66
 
 def reset_console():
     '''Resets the console to the default state'''
@@ -44,8 +58,8 @@ def set_font(name):
 
 def getLSA(lsa):
     values = []
-    for i in range(0,8):
-        values.append(lsa.value(i))
+    for j in range(0,8):
+        values.append(lsa.value(j))
     return values
 
 class Semaphore(Thread):
@@ -73,72 +87,68 @@ class Semaphore(Thread):
                 _, _, b = colorSensor.rgb
                 color = 2 if b > 60 else 3
 
-            f = open('colors.csv', 'a')
-            f.write("{}\n".format(color))
-            f.close()
-
             if not self.detectedSemaphore:
                 if color in [2, 3, 5]:
                     if self.semaphoreSequence[self.currentSemaphore][self.currentLight] == color:
                         self.currentLight += 1
                     
                     if self.currentLight == 3:
-                        print('PIZZAAAAAA!')
+                        PIZZA_DELIVERY = SEMAPHORE_SEQ.index(self.semaphoreSequence[self.currentSemaphore])
                         self.detectedSemaphore = True
                         self.currentSemaphore += 1
                         self.currentLight = 0
-                        PIZZA_DELIVERY = True
 
-                sleep(0.05)
+                sleep(0.25)
             else:
-                sleep(2)
-                PIZZA_DELIVERY = False
+                sleep(30)
+                PIZZA_DELIVERY = -1
                 self.detectedSemaphore = False
-
 
 class FollowLine(Thread):
     def __init__(self, threadID):
         Thread.__init__(self)
         self.threadID = threadID
         self.running = True
+        self.sample_time = 0.01
 
     def run(self):
-        global leftSpeed, rightSpeed
+        global p, i, d, readings, INTERSECTION_DETECTED, mutex
+        current_time = time()
+
         while self.running:
+            mutex.acquire()
             readings = getLSA(lsa)
+            right = sum(readings[:4])
+            left = sum(readings[4:])
 
-            leftBlack = 1
-            rightBlack = 1
+            INTERSECTION_DETECTED = right <= 300
+            mutex.release()
 
-            for i in range(len(readings)):
-                if i <= 3 and readings[i] < threshold:
-                    leftBlack += 1
-                elif i >= 4 and readings[i] < threshold:
-                    rightBlack += 1
+            if not INTERSECTION_DETECTED:
+            
+                last_time = current_time
+                current_time = time()
+                delta_time = current_time - last_time
 
-            if (leftBlack < rightBlack): ## Turn Left
-                turning = True
-                leftSpeed = baseSpeed + 4 * leftBlack
-                rightSpeed = baseSpeed + 8 * rightBlack
-            elif (leftBlack > rightBlack): ## Turn Right
-                turning = True
-                leftSpeed = baseSpeed + 8 * leftBlack
-                rightSpeed = baseSpeed + 4 * rightBlack
-            else:
-                if (leftBlack == 1 and turning):
-                    pass
-                else:
-                    leftSpeed = rightSpeed = 20
-                    turning = False
-            sleep(0.05)
+                if delta_time >= self.sample_time:
+                    mutex.acquire()
+                    last_p = p
+                    p = right - left
+                    i += p * delta_time
+                    d = (p - last_p) / delta_time
+                    mutex.release()
+
+            sleep(0.01)
 
 if __name__ == "__main__":
     reset_console()
     set_cursor(True)
     set_font('Lat15-Terminus12x6')
+
     line_follow = FollowLine(1)
     line_follow.setDaemon = True
     line_follow.running = True
+
     semaphore = Semaphore(2, [[3, 2, 5], [5, 3, 2], [2, 5, 3]])
     semaphore.setDaemon = True
     semaphore.running = True
@@ -147,12 +157,47 @@ if __name__ == "__main__":
     semaphore.start()
 
     while True:
-        if PIZZA_DELIVERY:
-            DELTA += 1
-            lSpeed = DELTA + leftSpeed
-            rSpeed = rightSpeed - DELTA
-            motor.on(0.5 * leftSpeed + 0.5 * lSpeed, 0.5 * rightSpeed + 0.5 * rSpeed)
+        if INTERSECTION_DETECTED and PIZZA_DELIVERY != -1:
+            
+            motor.off()
+            
+            first = True
+            mutex.acquire()
+            readings = getLSA(lsa)
+            r = sum(readings[:4])
+            l = sum(readings[4:])
+            mutex.release()
+
+            while first or (abs(r-l) > 50 and r < 350 and l < 350):
+                mutex.acquire()
+                readings = getLSA(lsa)
+                r = sum(readings[:4])
+                l = sum(readings[4:])
+                mutex.release()
+                motor.on(20, -20)
+                print(PIZZA_DELIVERY)
+                sleep(0.1 if not first else (2.15 if PIZZA_DELIVERY == 0 else (1 if PIZZA_DELIVERY == 1 else 0.5)))
+                first = False
+
+            INTERSECTION_DETECTED = False
+            mutex.acquire()
+            p = 0
+            i = 0
+            d = 0
+            PIZZA_DELIVERY = -1
+            mutex.release()
+            continue
         else:
-            DELTA = 5
-            motor.on(leftSpeed, rightSpeed)
-        sleep(0.05)
+            line_follow.running = True
+            mutex.acquire()
+            error = kp * p + ki * i + kd * d
+            mutex.release()
+            prevRight = rightSpeed
+            prevLeft = leftSpeed
+            rightSpeed = baseSpeed + error
+            leftSpeed = baseSpeed - error
+        
+        motor.on(max(min(60,ALPHA * leftSpeed + (1 - ALPHA) * prevLeft), -5),
+                 max(min(60,ALPHA * rightSpeed + (1 - ALPHA) * prevRight), -5))
+
+        sleep(0.01)
